@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu, windows, macos]
-        PYTHON_VERSION: ['3.9', '3.10']
+        PYTHON_VERSION: ['3.9', '3.10', '3.12']
         LABEL: ['']
         include:
           - os: ubuntu
