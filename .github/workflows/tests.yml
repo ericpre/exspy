@@ -75,11 +75,16 @@ jobs:
         run: |
           pip install -e '.${{ matrix.PIP_SELECTOR }}'
 
-      - name: Install (HyperSpy dev)
-        # Test against the hyperspy `RELEASE_next_minor` branch
-        if: contains( matrix.LABEL, 'dev')
+      - name: Install (HyperSpy dev with lazy import)
+        # Remove when https://github.com/hyperspy/hyperspy/pull/3569 is merged
         run: |
-          pip install https://github.com/hyperspy/hyperspy/archive/RELEASE_next_minor.zip
+          pip install "hyperspy @ git+https://github.com/ericpre/hyperspy.git@rsciio_deprecation&lazy_import_part2"
+
+      # - name: Install (HyperSpy dev)
+      #   # Test against the hyperspy `RELEASE_next_minor` branch
+      #   if: contains( matrix.LABEL, 'dev')
+      #   run: |
+      #     pip install https://github.com/hyperspy/hyperspy/archive/RELEASE_next_minor.zip
 
       - name: Get pooch cache paths
         run: |
