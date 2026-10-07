@@ -4,3 +4,11 @@ beam energy (100, 200 or 300 keV), using the same X-ray line names as elsewhere
 in eXSpy (``Ka``, ``Kb``, ``La``, ``Lb1``, ...). Lines of the same element can
 be combined (e.g. ``Ka`` + ``Kb``) into a single whole-shell k-factor. See
 :ref:`eds_quantification-label`.
+
+``EDSTEMSpectrum.quantification`` with ``method="CL"`` now also accepts
+``factors="standardless"``: the k-factors are then computed automatically from
+the bundled tables for the beam energy stored in the microscope parameters,
+matched to the X-ray lines of the given intensities, and the factors used are
+recorded in the ``Sample.quantification_factors`` metadata of the returned
+signals. The beam energy now also accepts float values, as stored in the
+microscope metadata.

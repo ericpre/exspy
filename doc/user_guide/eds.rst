@@ -710,6 +710,14 @@ names and the ``weight``/``atomic``/``cross_section`` ``form`` argument):
     >>> factors = exspy.utils.eds.get_k_factors(
     ...     300, ["Fe_Ka", "Pt_La"])  # directly used in quantification
 
+For the Cliff-Lorimer method, these k-factors can also be computed directly
+by the quantification: passing ``factors="standardless"`` to
+:py:meth:`~.signals.EDSTEMSpectrum.quantification` generates the k-factors
+from the bundled tables for the beam energy stored in the microscope
+parameters, matched to the X-ray lines of the given intensities, and records
+the factors used in the ``Sample.quantification_factors`` metadata of the
+returned signals (see the end of this section for an example).
+
 For a different beam energy, generate a table with ``emtables`` and load it
 with :py:func:`~.utils.eds.load_cross_section_table`.
 
@@ -782,6 +790,16 @@ out as follows:
     ...                                   factors=kfactors)
     Fe (Fe_Ka): Composition = 15.41 atomic percent
     Pt (Pt_La): Composition = 84.59 atomic percent
+
+Alternatively, pass ``"standardless"`` to use the k-factors computed from the
+cross-section tables at the beam energy set in the microscope parameters of
+the signal (the factors used are stored in the
+``Sample.quantification_factors`` metadata of the returned signals):
+
+.. code-block:: python
+
+    >>> atomic_percent = s.quantification(intensities, method='CL',
+    ...                                   factors="standardless")
 
 By default, the obtained composition is in atomic percent. However, it can be
 transformed into weight percent either with the option
