@@ -542,6 +542,46 @@ class Test_quantification:
         mass_thickness2 = s.CL_get_mass_thickness(res, thickness)
         np.testing.assert_allclose(mass_thickness2, mass_thickness * thickness / 100)
 
+    def test_quant_lorimer_standardless(self):
+        s = self.signal
+        method = "CL"
+        composition_units = "weight"
+        intensities = s.get_lines_intensity()
+        kfactors = eds_utils.get_k_factors(200, ["Al_Ka", "Zn_Ka"])
+        res = s.quantification(intensities, method, "standardless", composition_units)
+        res2 = s.quantification(intensities, method, kfactors, composition_units)
+        for i in range(2):
+            np.testing.assert_allclose(res[i].data, res2[i].data)
+            assert res[i].metadata.Sample.quantification_factors == pytest.approx(
+                kfactors
+            )
+
+    def test_quant_lorimer_standardless_error_no_beam_energy(self):
+        s = self.signal
+        intensities = s.get_lines_intensity()
+        del s.metadata.Acquisition_instrument.TEM.beam_energy
+        with pytest.raises(ValueError, match="set_microscope_parameters"):
+            _ = s.quantification(intensities, "CL", "standardless")
+
+    def test_quant_lorimer_standardless_error_unsupported_beam_energy(self):
+        s = self.signal
+        intensities = s.get_lines_intensity()
+        s.metadata.Acquisition_instrument.TEM.beam_energy = 80
+        with pytest.raises(ValueError, match="cross-section table"):
+            _ = s.quantification(intensities, "CL", "standardless")
+
+    def test_quant_lorimer_standardless_error_method(self):
+        s = self.signal
+        intensities = s.get_lines_intensity()
+        with pytest.raises(ValueError, match='"CL" method'):
+            _ = s.quantification(intensities, "zeta", "standardless")
+
+    def test_quant_lorimer_standardless_error_bad_string(self):
+        s = self.signal
+        intensities = s.get_lines_intensity()
+        with pytest.raises(ValueError, match="standardless"):
+            _ = s.quantification(intensities, "CL", "auto")
+
 
 @lazifyTestClass
 class Test_vacuum_mask:
