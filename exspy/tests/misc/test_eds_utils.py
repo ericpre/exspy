@@ -105,6 +105,13 @@ class TestGetKFactors:
         assert isinstance(cr_ka_100, float) and cr_ka_100 > 0
         assert cr_ka_100 != pytest.approx(cr_ka_300)
 
+    def test_beam_energy_as_float(self):
+        # Microscope metadata stores the beam energy as a float (e.g. 200.0);
+        # it must resolve to the same bundled table as the int.
+        assert get_k_factors(200.0, ["Cr_Ka"]) == pytest.approx(
+            get_k_factors(200, ["Cr_Ka"])
+        )
+
     def test_order(self):
         assert get_k_factors(300, ["Cr_Ka", "Y_Ka"]) == [
             pytest.approx(1.5841454),

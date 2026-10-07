@@ -111,7 +111,7 @@ def _bundled_table(beam_energy):
             f"{_BEAM_ENERGIES}. Use ``emtables`` to generate a table for other "
             "energies and load it with ``load_cross_section_table``."
         )
-    return load_cross_section_table(_DATA_DIR / f"{beam_energy}keV_xrays.json")[0]
+    return load_cross_section_table(_DATA_DIR / f"{int(beam_energy)}keV_xrays.json")[0]
 
 
 def _element_symbol(element):
@@ -228,7 +228,7 @@ def get_k_factors(
 
     Parameters
     ----------
-    beam_energy : int
+    beam_energy : int or float
         The beam energy in keV. eXSpy ships cross-section tables for 100, 200
         and 300 keV; use ``emtables`` to generate a table for another energy
         and load it with :func:`load_cross_section_table`.
