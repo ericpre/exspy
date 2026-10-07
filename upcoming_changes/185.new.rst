@@ -1,0 +1,6 @@
+Add :func:`~.utils.eds.get_k_factors` to compute Cliff-Lorimer k-factors (and
+raw cross-section ratios) from X-ray emission cross-section tables at a given
+beam energy (100, 200 or 300 keV), using the same X-ray line names as elsewhere
+in eXSpy (``Ka``, ``Kb``, ``La``, ``Lb1``, ...). Lines of the same element can
+be combined (e.g. ``Ka`` + ``Kb``) into a single whole-shell k-factor. See
+:ref:`eds_quantification-label`.

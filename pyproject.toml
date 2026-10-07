@@ -129,6 +129,10 @@ include = ["exspy*"]
   "*.msa",
   "exspy/_misc/*.json",
   ]
+"exspy.utils.eds" = [
+  "data/*.json",
+  "data/LICENCE.txt",
+  ]
 
 [tool.setuptools_scm]
 # Presence enables setuptools_scm, the version will be determine at build time from git

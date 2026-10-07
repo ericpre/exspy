@@ -1,4 +1,5 @@
 from ._geometry import take_off_angle
+from ._k_factors import get_k_factors, load_cross_section_table
 from ._particle_matter_interaction import electron_range, xray_range
 from ._quantification import (
     cross_section_to_zeta,
@@ -32,8 +33,10 @@ __all__ = [
     "get_FWHM_at_Energy",
     "get_abs_corr_cross_section",
     "get_abs_corr_zeta",
+    "get_k_factors",
     "get_xray_lines",
     "get_xray_lines_near_energy",
+    "load_cross_section_table",
     "print_lines",
     "print_lines_near_energy",
     "quantification_cliff_lorimer",
