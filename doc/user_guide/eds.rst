@@ -698,6 +698,76 @@ zeta-factors and cross sections is possible using
 :py:func:`~.utils.eds.cross_section_to_zeta` or
 :py:func:`~.utils.eds.zeta_to_cross_section`.
 
+Alternatively, Cliff-Lorimer k-factors can be computed from first principles
+using X-ray emission cross-section tables produced with the `emtables
+<https://github.com/adriente/emtables>`_ package. eXSpy ships these tables for
+beam energies of 100, 200 and 300 keV, and turns them into k-factors with
+:py:func:`~.utils.eds.get_k_factors` (see its docstring for the accepted line
+names and the ``weight``/``atomic``/``cross_section`` ``form`` argument):
+
+.. code-block:: python
+
+    >>> factors = exspy.utils.eds.get_k_factors(
+    ...     300, ["Fe_Ka", "Pt_La"])  # directly used in quantification
+
+For a different beam energy, generate a table with ``emtables`` and load it
+with :py:func:`~.utils.eds.load_cross_section_table`.
+
+These theoretical k-factors are standardless: they do not account for the
+detector efficiency (entrance window, dead layer, crystal response and
+geometry). For quantitative analysis, they should be calibrated against
+standards measured on the same instrument, as recommended for vendor-provided
+k-factors.
+
+Whole shells and sub-shells
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The X-ray line names used by :py:func:`~.utils.eds.get_k_factors` follow the
+same convention as elsewhere in eXSpy (``Ka``, ``Kb``, ``La``, ``Lb1``, ...).
+A whole shell or a specific sub-shell is simply the *group* of its lines: each
+line has its own k-factor, and ``get_k_factors`` returns them one per line.
+
+The K shell has no sub-shells, while the L shell is split into the L1, L2 and
+L3 sub-shells (and the M shell into M1 to M5). Each sub-shell is described by a
+set of line names:
+
+* K shell (no sub-shells): ``Ka``, ``Kb``
+* L1 sub-shell: ``Lb3``, ``Lb4``, ``Lg3``
+* L2 sub-shell: ``Lb1``, ``Lg1``, ``Ln``
+* L3 sub-shell: ``La``, ``Lb2``, ``Ll``
+
+For example, the whole K shell of chromium is the group of its K-alpha and
+K-beta lines:
+
+.. code-block:: python
+
+    >>> import exspy
+    >>> exspy.utils.eds.get_k_factors(300, ["Cr_Ka", "Cr_Kb"])  # separate factors
+    [1.5841..., 12.312...]
+
+To compare with the k-factors reported by vendor software (which often quote a
+single factor per element/shell), the lines of a group can be passed as a
+nested list to combine them into a single k-factor:
+
+.. code-block:: python
+
+    >>> exspy.utils.eds.get_k_factors(300, [["Cr_Ka", "Cr_Kb"]])  # combined
+    [1.4036...]
+
+The L3 sub-shell of tungsten groups its L3 lines, and the whole L shell is
+obtained by passing all its lines:
+
+.. code-block:: python
+
+    >>> exspy.utils.eds.get_k_factors(300, ["W_La", "W_Lb2", "W_Ll"])  # L3 sub-shell
+    [5.977..., 37.516..., 127.697...]
+    >>> exspy.utils.eds.get_k_factors(300, [["W_La", "W_Lb2", "W_Ll"]])  # combined L3
+    [4.9558...]
+    >>> exspy.utils.eds.get_k_factors(
+    ...     300, ["W_La", "W_Lb1", "W_Lb2", "W_Lb3", "W_Lb4",
+    ...           "W_Lg1", "W_Lg3", "W_Ll", "W_Ln"])  # all L lines
+    [5.977..., 15.710..., 37.516..., ...]
+
 Using the Cliff-Lorimer method as an example, quantification can be carried
 out as follows:
 
