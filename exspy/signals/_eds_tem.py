@@ -325,11 +325,18 @@ class EDSTEMSpectrum(EDSSpectrum):
         method : {"CL", "zeta", "cross_section"}
             Set the quantification method: Cliff-Lorimer, zeta-factor, or
             ionization cross sections.
-        factors : list of float
+        factors : list of float or "standardless"
             The list of kfactors, zeta-factors or cross sections in same order
             as intensities. Note that intensities provided by Hyperspy are
             sorted by the alphabetical order of the X-ray lines.
             eg. factors=[0.982, 1.32, 1.60] for ["Al_Ka", "Cr_Ka", "Ni_Ka"].
+            If ``"standardless"`` (only with the ``"CL"`` method), the
+            kfactors are computed from the X-ray emission cross-section
+            tables bundled with eXSpy (available for 100, 200 and 300 keV
+            beam energies) using the beam energy stored in the microscope
+            parameters, and the factors used are stored in the
+            ``Sample.quantification_factors`` metadata of the returned
+            signals. See :func:`exspy.utils.eds.get_k_factors`.
         composition_units : {"atomic", "weight"}
             The quantification returns the composition in "atomic" percent by
             default, but can also return weight percent if specified.
@@ -412,6 +419,27 @@ class EDSTEMSpectrum(EDSSpectrum):
         xray_lines = [
             intensity.metadata.Sample.xray_lines[0] for intensity in intensities
         ]
+        standardless = False
+        if isinstance(factors, str):
+            if factors != "standardless":
+                raise ValueError(
+                    '`factors` must be a list of factors or "standardless"; '
+                    f"got {factors!r}."
+                )
+            if method != "CL":
+                raise ValueError(
+                    '"standardless" factors are only available with the '
+                    f'"CL" method; got {method!r}.'
+                )
+            if "Acquisition_instrument.TEM.beam_energy" not in self.metadata:
+                raise ValueError(
+                    "The standardless k-factors could not be computed as the "
+                    "beam energy is not set. It can be set using "
+                    "`set_microscope_parameters()`."
+                )
+            beam_energy = self.metadata.Acquisition_instrument.TEM.beam_energy
+            factors = eds_utils.get_k_factors(beam_energy, xray_lines)
+            standardless = True
         it = 0
         if absorption_correction:
             if show_progressbar is None:  # pragma: no cover
@@ -544,6 +572,10 @@ class EDSTEMSpectrum(EDSSpectrum):
             )
             composition[i].metadata.set_item("Sample.elements", ([element]))
             composition[i].metadata.set_item("Sample.xray_lines", ([xray_line]))
+            if standardless:
+                composition[i].metadata.set_item(
+                    "Sample.quantification_factors", list(factors)
+                )
             if plot_result and composition[i].axes_manager.navigation_size == 1:
                 c = float(composition[i].data)
                 print(f"{element} ({xray_line}): Composition = {c:.2f} percent")
