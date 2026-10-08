@@ -767,6 +767,39 @@ The same correction can be passed directly to the quantification:
     ...     intensities, method='CL', factors="standardless",
     ...     detector_efficiency=efficiency)
 
+eXSpy bundles the interpolated efficiency curve of a SuperX (Thermo Fisher)
+windowless silicon drift detector, redistributed from the `ASTORUM
+<https://github.com/sebastian-cozma/ASTORUM>`_ package
+(``exspy.utils.eds.SUPERX_EFFICIENCY_FILE``). It can be compared with a
+curve calculated from the detector geometry; for example, with the
+windowless detector defined above (100 nm silicon dead layer and a 0.45 mm
+active depth):
+
+.. code-block:: python
+
+    >>> import numpy as np
+    >>> from exspy.utils.eds import SUPERX_EFFICIENCY_FILE, load_detector_efficiency
+    >>> energies_superX, efficiency_superX = load_detector_efficiency(
+    ...     SUPERX_EFFICIENCY_FILE)
+    >>> for E in (1.74, 6.40, 14.96):  # keV: Si_Ka, Fe_Ka, Y_Ka
+    ...     print(E, np.interp(E, energies_superX, efficiency_superX),
+    ...           float(efficiency(E)))
+    1.74 0.9549 0.9925
+    6.4 0.9775 0.9973
+    14.96 0.6874 0.6300
+
+For the k-factor of the yttrium K-alpha line at 300 keV, the uncorrected
+value (5.317) becomes 7.369 with the bundled SuperX curve and 8.349 with the
+windowless detector calculated above:
+
+.. code-block:: python
+
+    >>> exspy.utils.eds.get_k_factors(
+    ...     300, ["Y_Ka"], detector_efficiency=SUPERX_EFFICIENCY_FILE)
+    [7.3688...]
+    >>> exspy.utils.eds.get_k_factors(300, ["Y_Ka"], detector_efficiency=efficiency)
+    [8.3490...]
+
 Note that the correction assumes raw intensities: if the intensities are
 already corrected for the detection efficiency of the detector, do not pass
 ``detector_efficiency``.

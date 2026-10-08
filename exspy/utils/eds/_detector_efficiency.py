@@ -23,11 +23,22 @@ detector (:func:`detector_efficiency_from_layers`) or load a tabulated
 efficiency curve from a two-column file (:func:`load_detector_efficiency`).
 The efficiency can be passed to :func:`exspy.utils.eds.get_k_factors` to
 correct the standardless k-factors for quantification from raw intensities.
+The interpolated efficiency curve of a SuperX windowless silicon drift
+detector is bundled with eXSpy (see ``SUPERX_EFFICIENCY_FILE``).
 """
+
+from pathlib import Path
 
 import numpy as np
 
 from exspy import material
+
+_DATA_DIR = Path(__file__).parent / "data"
+
+#: Interpolated detection efficiency curve of a SuperX (Thermo Fisher)
+#: windowless silicon drift detector, redistributed from the `ASTORUM
+#: <https://github.com/sebastian-cozma/ASTORUM>`_ package (GPLv3).
+SUPERX_EFFICIENCY_FILE = _DATA_DIR / "interpolated_SDD_efficiency.txt"
 
 
 def detector_efficiency_from_layers(

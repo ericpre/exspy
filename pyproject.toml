@@ -131,6 +131,7 @@ include = ["exspy*"]
   ]
 "exspy.utils.eds" = [
   "data/*.json",
+  "data/*.txt",
   "data/LICENCE.txt",
   ]
 

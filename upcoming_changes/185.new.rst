@@ -21,4 +21,7 @@ by the ratio of the (cross-section-weighted) efficiency of the reference line
 to that of the corresponding line. The efficiency can be given as a callable
 of the energy, a two-column (energy, efficiency) file or array (see the new
 ``load_detector_efficiency``), or calculated from the detector layers (see
-the new ``detector_efficiency_from_layers``).
+the new ``detector_efficiency_from_layers``). The interpolated efficiency
+curve of a SuperX windowless silicon drift detector is bundled with eXSpy
+(``SUPERX_EFFICIENCY_FILE``), redistributed from the `ASTORUM
+<https://github.com/sebastian-cozma/ASTORUM>`_ package.
