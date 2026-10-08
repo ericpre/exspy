@@ -1,4 +1,5 @@
 from ._detector_efficiency import (
+    SUPERX_EFFICIENCY_FILE,
     detector_efficiency_from_layers,
     load_detector_efficiency,
 )
@@ -28,6 +29,7 @@ from ._xray_lines import (
 )
 
 __all__ = [
+    "SUPERX_EFFICIENCY_FILE",
     "_get_element_and_line",
     "_get_energy_xray_line",
     "_get_xray_lines_family",

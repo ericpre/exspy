@@ -20,6 +20,7 @@ import pytest
 
 from exspy import material
 from exspy.utils.eds import (
+    SUPERX_EFFICIENCY_FILE,
     _get_element_and_line,
     detector_efficiency_from_layers,
     get_k_factors,
@@ -217,6 +218,21 @@ class TestLoadDetectorEfficiency:
         filename.write_text("1.0 0.5 3\n")
         with pytest.raises(ValueError, match="two columns"):
             load_detector_efficiency(filename)
+
+
+class TestSuperXDetectorEfficiencyFile:
+    def test_load(self):
+        energies, efficiencies = load_detector_efficiency(SUPERX_EFFICIENCY_FILE)
+        assert energies.size == efficiencies.size == 4000
+        assert np.all(np.diff(energies) > 0)
+        assert np.all(efficiencies > 0)
+        assert np.all(efficiencies <= 1)
+
+    def test_y_k_factor(self):
+        # stable reference value for the bundled curve: the corrected
+        # k-factor of the yttrium K-alpha line at 300 keV
+        k = get_k_factors(300, ["Y_Ka"], detector_efficiency=SUPERX_EFFICIENCY_FILE)[0]
+        assert k == pytest.approx(7.3688, rel=1e-3)
 
 
 class TestGetKFactorsDetectorEfficiency:
