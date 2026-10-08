@@ -29,13 +29,17 @@ directory). To use a different beam energy, generate a table with ``emtables``
 and load it with :func:`load_cross_section_table`.
 
 The k-factors returned by :func:`get_k_factors` are standardless theoretical
-factors that do not account for detector efficiency; see its documentation for
-details.
+factors that do not account for detector efficiency; pass
+``detector_efficiency`` to correct them for quantification from raw
+intensities (see its documentation for details).
 """
 
 from pathlib import Path
 
+import numpy as np
+
 from exspy import material
+from exspy.utils.eds._detector_efficiency import load_detector_efficiency
 from exspy.utils.eds._xray_lines import _get_element_and_line
 
 _DATA_DIR = Path(__file__).parent / "data"
@@ -217,12 +221,78 @@ def _combined_cross_section(table, group):
     return element, sigma
 
 
+def _as_efficiency_callable(detector_efficiency):
+    """Normalise a detector-efficiency input to a callable ``eps(E)``.
+
+    Accepts a callable, a two-column (energy, efficiency) array-like or
+    the path to a two-column file, as accepted by :func:`get_k_factors`.
+    """
+    if callable(detector_efficiency):
+        return lambda E: float(detector_efficiency(E))
+    if isinstance(detector_efficiency, (str, Path)):
+        energies, efficiencies = load_detector_efficiency(detector_efficiency)
+    else:
+        data = np.asarray(detector_efficiency, dtype=float)
+        if data.ndim != 2 or data.shape[1] != 2:
+            raise ValueError(
+                "The detector efficiency must be given as a callable, a "
+                "two-column (energy in keV, efficiency) array or the path "
+                "to a two-column file."
+            )
+        energies, efficiencies = data[:, 0], data[:, 1]
+    order = np.argsort(energies)
+    energies, efficiencies = energies[order], efficiencies[order]
+
+    def eps(E):
+        if E < energies[0] or E > energies[-1]:
+            raise ValueError(
+                "The detector efficiency curve does not cover an energy "
+                f"of {E:.3f} keV; it spans energies from {energies[0]} to "
+                f"{energies[-1]} keV."
+            )
+        return float(np.interp(E, energies, efficiencies))
+
+    return eps
+
+
+def _line_efficiency(table, element, line, eps):
+    """Return the cross-section-weighted detection efficiency of a line."""
+    lines = table[str(_atomic_number(element))]
+    names = _resolve_lines(lines, line)
+    total = sum(lines[name]["cs"] for name in names)
+    weighted = sum(lines[name]["cs"] * eps(lines[name]["energy"]) for name in names)
+    return weighted / total
+
+
+def _group_efficiency(table, group, eps):
+    """Return the cross-section-weighted detection efficiency of a group."""
+    sigma_total = 0.0
+    sigma_weighted = 0.0
+    for xray_line in group:
+        element, line = _get_element_and_line(xray_line)
+        _, sigma = _line_cross_section(table, element, line)
+        sigma_total += sigma
+        sigma_weighted += sigma * _line_efficiency(table, element, line, eps)
+    return sigma_weighted / sigma_total
+
+
+def _checked_efficiency(eps_value, label):
+    """Raise a clear error for lines the detector cannot detect."""
+    if eps_value <= 0:
+        raise ValueError(
+            f"The detection efficiency of {label} is zero; this line cannot "
+            "be quantified with this detector."
+        )
+    return eps_value
+
+
 def get_k_factors(
     beam_energy,
     xray_lines,
     reference_element="Si",
     reference_line="Ka",
     form="weight",
+    detector_efficiency=None,
 ):
     """Return k-factors for a list of X-ray lines, in the same order.
 
@@ -262,6 +332,18 @@ def get_k_factors(
           ``sigma_reference / sigma_element``.
         - ``"cross_section"``: the raw cross-section ratio,
           ``sigma_element / sigma_reference``.
+    detector_efficiency : None, callable, array-like, str or pathlib.Path, optional
+        The detection efficiency of the detector, used to correct the
+        k-factors for quantification from raw (uncorrected) intensities:
+        each factor is multiplied by the ratio of the (cross-section
+        weighted) efficiency of the reference line to that of the
+        corresponding line or group of lines. It can be given as a
+        callable taking the energy in keV, a two-column (energy in keV,
+        efficiency) array-like or the path to a two-column file (see
+        :func:`load_detector_efficiency`); see
+        :func:`detector_efficiency_from_layers` to calculate such an
+        efficiency from the detector geometry. Not available with
+        ``form="cross_section"``.
 
     Returns
     -------
@@ -294,6 +376,15 @@ def get_k_factors(
     >>> exspy.utils.eds.get_k_factors(300, [["W_La", "W_Lb2", "W_Ll"]])  # combined L3
     [4.9558...]
 
+    When quantifying from raw (uncorrected) intensities, the detection
+    efficiency of the detector can be folded into the k-factors:
+
+    >>> layers = [("Si", 100)]  # 100 nm silicon dead layer
+    >>> efficiency = lambda E: exspy.utils.eds.detector_efficiency_from_layers(
+    ...     E, layers, 0.45)
+    >>> exspy.utils.eds.get_k_factors(300, ["Y_Ka"], detector_efficiency=efficiency)
+    [8.3490...]
+
     Notes
     -----
     The X-ray line names identify the shell (and, for the L and M shells, the
@@ -311,14 +402,18 @@ def get_k_factors(
     not the sum of the per-line factors).
 
     The k-factors are standardless theoretical factors computed from the
-    emission cross-sections, which do not account for the detector efficiency
-    (entrance window, dead layer, crystal response and geometry). For
-    quantitative analysis, calibrate the k-factors against standards measured
-    on the same instrument, as recommended for vendor-provided k-factors.
+    emission cross-sections, which do not account for the detector
+    efficiency (entrance window, dead layer, crystal response and
+    geometry). Pass ``detector_efficiency`` to correct the k-factors for
+    quantification from raw intensities, or correct the intensities
+    themselves; for quantitative analysis, calibrate the k-factors
+    against standards measured on the same instrument, as recommended
+    for vendor-provided k-factors.
 
     See Also
     --------
-    load_cross_section_table
+    load_cross_section_table, load_detector_efficiency,
+    detector_efficiency_from_layers
     """
     if not isinstance(form, str) or form not in ("weight", "atomic", "cross_section"):
         raise ValueError('`form` must be one of "weight", "atomic" or "cross_section".')
@@ -327,30 +422,50 @@ def get_k_factors(
         xray_lines = [xray_lines]
 
     table = _bundled_table(beam_energy)
+    eps = None
+    eps_ref = None
+    if detector_efficiency is not None:
+        if form == "cross_section":
+            raise ValueError(
+                "The detector efficiency correction is not available with "
+                'form="cross_section"; use the "weight" or "atomic" forms.'
+            )
+        eps = _as_efficiency_callable(detector_efficiency)
+        eps_ref = _line_efficiency(table, reference_element, reference_line, eps)
+        if eps_ref <= 0:
+            raise ValueError(
+                f"The detection efficiency of the reference line "
+                f"({reference_element}_{reference_line}) is zero; this "
+                "reference cannot be used to quantify with this detector."
+            )
     k_factors = []
     for entry in xray_lines:
         if isinstance(entry, str):
             element, line = _get_element_and_line(entry)
-            k_factors.append(
-                _get_k_factor(
-                    table,
-                    element,
-                    line,
-                    reference_element=reference_element,
-                    reference_line=reference_line,
-                    form=form,
-                )
+            k = _get_k_factor(
+                table,
+                element,
+                line,
+                reference_element=reference_element,
+                reference_line=reference_line,
+                form=form,
             )
+            if eps is not None:
+                eps_el = _line_efficiency(table, element, line, eps)
+                k *= eps_ref / _checked_efficiency(eps_el, entry)
+            k_factors.append(k)
         else:
             element, sigma = _combined_cross_section(table, entry)
-            k_factors.append(
-                _k_factor_from_sigma(
-                    table,
-                    element,
-                    sigma,
-                    reference_element,
-                    reference_line,
-                    form,
-                )
+            k = _k_factor_from_sigma(
+                table,
+                element,
+                sigma,
+                reference_element,
+                reference_line,
+                form,
             )
+            if eps is not None:
+                eps_el = _group_efficiency(table, entry, eps)
+                k *= eps_ref / _checked_efficiency(eps_el, "+".join(entry))
+            k_factors.append(k)
     return k_factors
