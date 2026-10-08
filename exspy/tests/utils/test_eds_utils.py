@@ -217,3 +217,92 @@ class TestLoadDetectorEfficiency:
         filename.write_text("1.0 0.5 3\n")
         with pytest.raises(ValueError, match="two columns"):
             load_detector_efficiency(filename)
+
+
+class TestGetKFactorsDetectorEfficiency:
+    def test_constant_efficiency_unchanged(self):
+        def eps(E):
+            return 0.7
+
+        for lines in (["Cr_Ka"], [["Cr_Ka", "Cr_Kb"]], ["W_La", "Pt_La"]):
+            assert get_k_factors(300, lines, detector_efficiency=eps) == pytest.approx(
+                get_k_factors(300, lines)
+            )
+
+    def test_efficiency_ratio(self):
+        def eps(E):
+            return E / 40.0
+
+        table, _ = load_cross_section_table(_DATA_DIR / "300keV_xrays.json")
+
+        def eps_eff(z, lines):
+            total = sum(table[z][l]["cs"] for l in lines)
+            weighted = sum(
+                table[z][l]["cs"] * table[z][l]["energy"] / 40 for l in lines
+            )
+            return weighted / total
+
+        corrected = get_k_factors(300, ["Cr_Ka"], detector_efficiency=eps)[0]
+        uncorrected = get_k_factors(300, ["Cr_Ka"])[0]
+        expected = (
+            uncorrected * eps_eff("14", ["KL3", "KL2"]) / eps_eff("24", ["KL3", "KL2"])
+        )
+        assert corrected == pytest.approx(expected)
+
+    def test_group_efficiency(self):
+        def eps(E):
+            return E / 40.0
+
+        table, _ = load_cross_section_table(_DATA_DIR / "300keV_xrays.json")
+
+        def eps_eff(z, lines):
+            total = sum(table[z][l]["cs"] for l in lines)
+            weighted = sum(
+                table[z][l]["cs"] * table[z][l]["energy"] / 40 for l in lines
+            )
+            return weighted / total
+
+        corrected = get_k_factors(300, [["Cr_Ka", "Cr_Kb"]], detector_efficiency=eps)[0]
+        uncorrected = get_k_factors(300, [["Cr_Ka", "Cr_Kb"]])[0]
+        expected = (
+            uncorrected
+            * eps_eff("14", ["KL3", "KL2"])
+            / eps_eff("24", ["KL3", "KL2", "KM3", "KM2"])
+        )
+        assert corrected == pytest.approx(expected)
+
+    def test_file_input(self, tmp_path):
+        # linear curve sampled densely, so that the interpolation is exact
+        energies = np.linspace(0.2, 40, 198)
+        curve = np.column_stack([energies, energies / 40])
+        filename = tmp_path / "efficiency.txt"
+        np.savetxt(filename, curve)
+        from_file = get_k_factors(300, ["Cr_Ka"], detector_efficiency=filename)
+        from_array = get_k_factors(300, ["Cr_Ka"], detector_efficiency=curve)
+        assert from_file == pytest.approx(from_array)
+
+    def test_out_of_range(self, tmp_path):
+        filename = tmp_path / "efficiency.txt"
+        filename.write_text("1.0 0.5\n10.0 0.2\n")
+        with pytest.raises(ValueError, match="does not cover"):
+            get_k_factors(300, ["Y_Ka"], detector_efficiency=filename)
+
+    def test_cross_section_form_unsupported(self):
+        def eps(E):
+            return 0.5
+
+        with pytest.raises(ValueError, match="cross_section"):
+            get_k_factors(300, ["Cr_Ka"], form="cross_section", detector_efficiency=eps)
+
+    def test_zero_efficiency(self):
+        # zero above 5 keV, i.e. at the Cr_Ka line (5.41 keV), but not at
+        # the Si_Ka reference line (1.74 keV)
+        def eps(E):
+            return 0.0 if E > 5 else 1.0
+
+        with pytest.raises(ValueError, match="zero"):
+            get_k_factors(300, ["Cr_Ka"], detector_efficiency=eps)
+
+    def test_invalid_input(self):
+        with pytest.raises(ValueError, match="two-column"):
+            get_k_factors(300, ["Cr_Ka"], detector_efficiency=42)
