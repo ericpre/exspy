@@ -729,7 +729,7 @@ standards measured on the same instrument, as recommended for vendor-provided
 k-factors.
 
 Detector efficiency correction
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The k-factors above describe the X-rays emitted by the sample, whereas the
 intensities measured by a detector are additionally weighted by its
