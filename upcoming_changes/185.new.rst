@@ -12,3 +12,13 @@ matched to the X-ray lines of the given intensities, and the factors used are
 recorded in the ``Sample.quantification_factors`` metadata of the returned
 signals. The beam energy now also accepts float values, as stored in the
 microscope metadata.
+
+``get_k_factors`` and ``EDSTEMSpectrum.quantification`` (with
+``factors="standardless"``) accept a ``detector_efficiency`` argument to
+correct the standardless k-factors for the detection efficiency of the
+detector, for quantification from raw intensities: each factor is multiplied
+by the ratio of the (cross-section-weighted) efficiency of the reference line
+to that of the corresponding line. The efficiency can be given as a callable
+of the energy, a two-column (energy, efficiency) file or array (see the new
+``load_detector_efficiency``), or calculated from the detector layers (see
+the new ``detector_efficiency_from_layers``).
