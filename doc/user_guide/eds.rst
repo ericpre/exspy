@@ -723,9 +723,53 @@ with :py:func:`~.utils.eds.load_cross_section_table`.
 
 These theoretical k-factors are standardless: they do not account for the
 detector efficiency (entrance window, dead layer, crystal response and
-geometry). For quantitative analysis, they should be calibrated against
+geometry), which can be corrected for by passing ``detector_efficiency`` (see
+below). For quantitative analysis, they should be calibrated against
 standards measured on the same instrument, as recommended for vendor-provided
 k-factors.
+
+Detector efficiency correction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The k-factors above describe the X-rays emitted by the sample, whereas the
+intensities measured by a detector are additionally weighted by its
+*detection efficiency*, which varies strongly with the X-ray energy. When
+quantifying from raw (uncorrected) intensities, the efficiency can be folded
+into the k-factors by passing ``detector_efficiency`` to
+:py:func:`~.utils.eds.get_k_factors` or to
+:py:meth:`~.signals.EDSTEMSpectrum.quantification`: each factor is
+multiplied by the ratio of the detection efficiency at the reference line to
+that of the corresponding line (for a group of lines, averaged using the
+cross-sections as weights). No correction is applied when
+``detector_efficiency`` is not given.
+
+The efficiency can be supplied as a callable of the X-ray energy, a
+two-column (energy in keV, efficiency) array or file (see
+:py:func:`~.utils.eds.load_detector_efficiency`), or calculated from the
+composition and thickness of the layers in front of the detector and the
+thickness of the active detector volume with
+:py:func:`~.utils.eds.detector_efficiency_from_layers`:
+
+.. code-block:: python
+
+    >>> from exspy.utils.eds import detector_efficiency_from_layers
+    >>> layers = [("Si", 100)]  # 100 nm silicon dead layer
+    >>> def efficiency(E):
+    ...     return detector_efficiency_from_layers(E, layers, 0.45)
+    >>> exspy.utils.eds.get_k_factors(300, ["Y_Ka"], detector_efficiency=efficiency)
+    [8.3490...]
+
+The same correction can be passed directly to the quantification:
+
+.. code-block:: python
+
+    >>> atomic_percent = s.quantification(
+    ...     intensities, method='CL', factors="standardless",
+    ...     detector_efficiency=efficiency)
+
+Note that the correction assumes raw intensities: if the intensities are
+already corrected for the detection efficiency of the detector, do not pass
+``detector_efficiency``.
 
 Whole shells and sub-shells
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
