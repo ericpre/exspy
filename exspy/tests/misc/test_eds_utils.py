@@ -15,12 +15,16 @@
 # You should have received a copy of the GNU General Public License
 # along with eXSpy. If not, see <https://www.gnu.org/licenses/#GPL>.
 
+import numpy as np
 import pytest
 
+from exspy import material
 from exspy.utils.eds import (
     _get_element_and_line,
+    detector_efficiency_from_layers,
     get_k_factors,
     load_cross_section_table,
+    load_detector_efficiency,
 )
 from exspy.utils.eds._k_factors import _DATA_DIR
 
@@ -143,3 +147,73 @@ class TestGetKFactors:
         # Expected: oxygen has no K-beta line, so "Kb" cannot be resolved.
         with pytest.raises(ValueError):
             get_k_factors(300, ["O_Kb"])
+
+
+class TestDetectorEfficiencyFromLayers:
+    def test_full_absorption(self):
+        energies = np.array([1.0, 5.0, 10.0])
+        efficiency = detector_efficiency_from_layers(energies, [], 10.0)
+        macs = material.mass_absorption_coefficient(element="Si", energies=energies)
+        density = material._elements_dict["Si"]["Physical_properties"][
+            "density (g/cm^3)"
+        ]
+        expected = 1 - np.exp(-(macs * density * 10.0 * 1e-1))
+        np.testing.assert_allclose(efficiency, expected)
+
+    def test_window_absorption(self):
+        energies = np.array([1.74, 14.96])
+        layers = [("Be", 25000)]  # 25 um Be window
+        efficiency = detector_efficiency_from_layers(energies, layers, 0.45)
+        macs_be = material.mass_absorption_coefficient(element="Be", energies=energies)
+        rho_be = material._elements_dict["Be"]["Physical_properties"][
+            "density (g/cm^3)"
+        ]
+        window = np.exp(-(macs_be * rho_be * 25000 * 1e-7))
+        macs_si = material.mass_absorption_coefficient(element="Si", energies=energies)
+        rho_si = material._elements_dict["Si"]["Physical_properties"][
+            "density (g/cm^3)"
+        ]
+        active = 1 - np.exp(-(macs_si * rho_si * 0.45 * 1e-1))
+        np.testing.assert_allclose(efficiency, window * active)
+
+    def test_cutoff_energy(self):
+        energies = np.array([0.01, 0.06, 5.0])
+        efficiency = detector_efficiency_from_layers(energies, [], 10.0)
+        assert efficiency[0] == 0
+        assert efficiency[1] > 0
+        assert efficiency[2] > 0
+
+    def test_scalar_input(self):
+        # at 20 keV, a 0.45 mm thick silicon detector absorbs ~80% of the
+        # X-rays, so the efficiency is strictly between 0 and 1
+        efficiency = detector_efficiency_from_layers(20.0, [], 0.45)
+        assert np.ndim(efficiency) == 0
+        assert 0 < efficiency < 1
+
+    def test_thicker_window_absorbs_more(self):
+        energies = np.array([1.74])
+        thin = detector_efficiency_from_layers(energies, [("Al", 10)], 10.0)
+        thick = detector_efficiency_from_layers(energies, [("Al", 10000)], 10.0)
+        assert thick[0] < thin[0]
+
+
+class TestLoadDetectorEfficiency:
+    def test_load_and_sort(self, tmp_path):
+        filename = tmp_path / "efficiency.txt"
+        filename.write_text("6.4 0.5\n1.7 0.9\n10.0 0.4\n")
+        energies, efficiencies = load_detector_efficiency(filename)
+        np.testing.assert_allclose(energies, [1.7, 6.4, 10.0])
+        np.testing.assert_allclose(efficiencies, [0.9, 0.5, 0.4])
+
+    def test_single_row(self, tmp_path):
+        filename = tmp_path / "efficiency.txt"
+        filename.write_text("5.0 0.5\n")
+        energies, efficiencies = load_detector_efficiency(filename)
+        assert energies[0] == 5.0
+        assert efficiencies[0] == 0.5
+
+    def test_wrong_number_of_columns(self, tmp_path):
+        filename = tmp_path / "efficiency.txt"
+        filename.write_text("1.0 0.5 3\n")
+        with pytest.raises(ValueError, match="two columns"):
+            load_detector_efficiency(filename)

@@ -1,3 +1,7 @@
+from ._detector_efficiency import (
+    detector_efficiency_from_layers,
+    load_detector_efficiency,
+)
 from ._geometry import take_off_angle
 from ._k_factors import get_k_factors, load_cross_section_table
 from ._particle_matter_interaction import electron_range, xray_range
@@ -29,6 +33,7 @@ __all__ = [
     "_get_xray_lines_family",
     "_parse_only_lines",
     "cross_section_to_zeta",
+    "detector_efficiency_from_layers",
     "electron_range",
     "get_FWHM_at_Energy",
     "get_abs_corr_cross_section",
@@ -37,6 +42,7 @@ __all__ = [
     "get_xray_lines",
     "get_xray_lines_near_energy",
     "load_cross_section_table",
+    "load_detector_efficiency",
     "print_lines",
     "print_lines_near_energy",
     "quantification_cliff_lorimer",
