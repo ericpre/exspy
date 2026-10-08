@@ -582,6 +582,59 @@ class Test_quantification:
         with pytest.raises(ValueError, match="standardless"):
             _ = s.quantification(intensities, "CL", "auto")
 
+    def test_quant_lorimer_standardless_detector_efficiency(self):
+        s = self.signal
+        method = "CL"
+        composition_units = "weight"
+        intensities = s.get_lines_intensity()
+
+        def detector_efficiency(E):
+            return 0.5 + 0.02 * E
+
+        kfactors = eds_utils.get_k_factors(
+            200, ["Al_Ka", "Zn_Ka"], detector_efficiency=detector_efficiency
+        )
+        res = s.quantification(
+            intensities,
+            method,
+            "standardless",
+            composition_units,
+            detector_efficiency=detector_efficiency,
+        )
+        res2 = s.quantification(intensities, method, kfactors, composition_units)
+        for i in range(2):
+            np.testing.assert_allclose(res[i].data, res2[i].data)
+            assert res[i].metadata.Sample.quantification_factors == pytest.approx(
+                kfactors
+            )
+
+    def test_quant_lorimer_standardless_detector_efficiency_error_list(self):
+        s = self.signal
+        intensities = s.get_lines_intensity()
+
+        def detector_efficiency(E):
+            return 0.5 + 0.02 * E
+
+        with pytest.raises(ValueError, match="detector_efficiency"):
+            _ = s.quantification(
+                intensities, "CL", [1, 2.0], detector_efficiency=detector_efficiency
+            )
+
+    def test_quant_lorimer_standardless_detector_efficiency_error_method(self):
+        s = self.signal
+        intensities = s.get_lines_intensity()
+
+        def detector_efficiency(E):
+            return 0.5 + 0.02 * E
+
+        with pytest.raises(ValueError, match="detector_efficiency"):
+            _ = s.quantification(
+                intensities,
+                "zeta",
+                "standardless",
+                detector_efficiency=detector_efficiency,
+            )
+
 
 @lazifyTestClass
 class Test_vacuum_mask:

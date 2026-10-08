@@ -310,6 +310,7 @@ class EDSTEMSpectrum(EDSSpectrum):
         probe_area="auto",
         max_iterations=30,
         show_progressbar=None,
+        detector_efficiency=None,
         **kwargs,
     ):
         """
@@ -369,6 +370,13 @@ class EDSTEMSpectrum(EDSSpectrum):
         max_iterations : int
             An upper limit to the number of calculations for absorption correction.
         %s
+        detector_efficiency : None (default), callable, array-like, str or pathlib.Path
+            The detection efficiency of the detector, used to correct the
+            ``"standardless"`` factors for quantification from raw
+            (uncorrected) intensities. Only supported with
+            ``method="CL"`` and ``factors="standardless"``. See
+            :func:`exspy.utils.eds.get_k_factors` for the accepted formats
+            and the correction applied.
         **kwargs
             The extra keyword arguments are passed to :func:`hyperspy.api.plot.plot_signals`.
             Only used if ``plot_result`` is True.
@@ -419,6 +427,13 @@ class EDSTEMSpectrum(EDSSpectrum):
         xray_lines = [
             intensity.metadata.Sample.xray_lines[0] for intensity in intensities
         ]
+        if detector_efficiency is not None and (
+            not isinstance(factors, str) or factors != "standardless" or method != "CL"
+        ):
+            raise ValueError(
+                "`detector_efficiency` is only supported with the "
+                '"CL" method and factors="standardless".'
+            )
         standardless = False
         if isinstance(factors, str):
             if factors != "standardless":
@@ -438,7 +453,9 @@ class EDSTEMSpectrum(EDSSpectrum):
                     "`set_microscope_parameters()`."
                 )
             beam_energy = self.metadata.Acquisition_instrument.TEM.beam_energy
-            factors = eds_utils.get_k_factors(beam_energy, xray_lines)
+            factors = eds_utils.get_k_factors(
+                beam_energy, xray_lines, detector_efficiency=detector_efficiency
+            )
             standardless = True
         it = 0
         if absorption_correction:
