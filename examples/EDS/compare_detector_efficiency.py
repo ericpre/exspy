@@ -30,7 +30,7 @@ from exspy.utils.eds import (
 energies_superX, efficiency_superX = load_detector_efficiency(SUPERX_EFFICIENCY_FILE)
 
 al_window = ("Al", 25)  # 25 nm aluminium window
-dead_layer = ("Si", 50)  # 50 nm silicon dead layer
+dead_layer = ("Si", 25)  # 25 nm silicon dead layer
 layers = [al_window, dead_layer]
 detector_thicknesses = (0.3, 0.4, 0.5, 1.0, 2.0)  # mm
 
