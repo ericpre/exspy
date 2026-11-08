@@ -42,7 +42,7 @@ SUPERX_EFFICIENCY_FILE = _DATA_DIR / "interpolated_SDD_efficiency.txt"
 
 
 def detector_efficiency_from_layers(
-    energies, layers, detector_thickness, cutoff_energy=0.05
+    energies, layers, detector_thickness, xray_entrance_angle=0.0, cutoff_energy=0.05
 ):
     """Compute the detection efficiency of an EDS detector from its layers.
 
@@ -50,11 +50,14 @@ def detector_efficiency_from_layers(
     in the layers in front of the detector (window, dead layer, ...) and in
     the active detector volume, assumed to be silicon::
 
-        eps(E) = prod_i exp(-mac_i(E) * rho_i * t_i)
-                 * (1 - exp(-mac_Si(E) * rho_Si * t_detector))
+        eps(E) = prod_i exp(-mac_i(E) * rho_i * t_i / cos(alpha))
+                 * (1 - exp(-mac_Si(E) * rho_Si * t_detector / cos(alpha)))
 
     where ``mac_i`` are the mass absorption coefficients, ``rho_i`` the
-    densities and ``t_i`` the thicknesses of the layers.
+    densities, ``t_i`` the thicknesses of the layers and ``alpha`` the
+    X-ray entrance angle: X-rays entering the detector at an angle to its
+    normal travel along a longer path by ``1 / cos(alpha)``, i.e. the
+    effective thicknesses are increased.
 
     Parameters
     ----------
@@ -67,6 +70,15 @@ def detector_efficiency_from_layers(
         composition of compound layers.
     detector_thickness : float
         The thickness of the active detector volume in mm.
+    xray_entrance_angle : float, default 0.0
+        The angle between the normal of the entrance window (detector
+        normal) and the mean direction of the X-rays reaching the
+        detector, in degrees. The effective thickness of every layer and
+        of the active volume is increased by a factor
+        ``1 / cos(xray_entrance_angle)``. It corresponds to the *beam
+        entrance angle* in the Bruker QUANTAX terminology; an angle
+        quoted from the window plane instead must be converted as
+        ``90 - angle``.
     cutoff_energy : float, default 0.05
         The energy in keV below which the efficiency is set to zero.
 
@@ -82,11 +94,21 @@ def detector_efficiency_from_layers(
     The equation follows Alvisi et al. 2006, as implemented in HyperSpy
     pull request #2535.
 
+    The entrance angle also reduces the solid angle subtended by the
+    detector by ``cos(xray_entrance_angle)``; this affects the measured
+    count rates but not the efficiency, and it cancels out in the
+    standardless k-factor correction.
+
     See Also
     --------
     load_detector_efficiency, exspy.utils.eds.get_k_factors
 
     """
+    if not 0 <= xray_entrance_angle < 90:
+        raise ValueError(
+            "`xray_entrance_angle` must be in degrees in the range [0, 90[."
+        )
+    path_factor = 1.0 / np.cos(np.radians(xray_entrance_angle))
     energies_arr = np.atleast_1d(np.asarray(energies, dtype=float))
     efficiency = np.ones_like(energies_arr)
     for element, thickness in layers:
@@ -96,11 +118,13 @@ def detector_efficiency_from_layers(
         density = material._elements_dict[element]["Physical_properties"][
             "density (g/cm^3)"
         ]
-        efficiency *= np.nan_to_num(np.exp(-(macs * density * thickness * 1e-7)))
+        efficiency *= np.nan_to_num(
+            np.exp(-(macs * density * thickness * path_factor * 1e-7))
+        )
     macs = material.mass_absorption_coefficient(element="Si", energies=energies_arr)
     density = material._elements_dict["Si"]["Physical_properties"]["density (g/cm^3)"]
     efficiency *= 1 - np.nan_to_num(
-        np.exp(-(macs * density * detector_thickness * 1e-1))
+        np.exp(-(macs * density * detector_thickness * path_factor * 1e-1))
     )
     efficiency[energies_arr < cutoff_energy] = 0.0
     return efficiency.reshape(np.shape(energies))

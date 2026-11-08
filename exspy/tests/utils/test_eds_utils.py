@@ -197,6 +197,63 @@ class TestDetectorEfficiencyFromLayers:
         thick = detector_efficiency_from_layers(energies, [("Al", 10000)], 10.0)
         assert thick[0] < thin[0]
 
+    def test_no_entrance_angle_matches_normal_incidence(self):
+        # Reference values at normal incidence, stored for regression:
+        # 25 nm Al window, 50 nm Si dead layer, 0.45 mm active depth
+        energies = np.array([1.74, 6.40, 14.96])
+        layers = [("Al", 25), ("Si", 50)]
+        efficiency = detector_efficiency_from_layers(energies, layers, 0.45)
+        np.testing.assert_allclose(
+            efficiency, [0.974301, 0.998008, 0.630068], atol=1e-5
+        )
+        # default xray_entrance_angle is 0 degrees
+        efficiency_angle = detector_efficiency_from_layers(
+            energies, layers, 0.45, xray_entrance_angle=0.0
+        )
+        np.testing.assert_allclose(efficiency_angle, efficiency)
+
+    def test_xray_entrance_angle_spot_values(self):
+        # An X-ray entrance angle lengthens the path of the X-rays through
+        # the detector by 1/cos(angle); stored reference values for a
+        # 25 nm Al window, a 50 nm Si dead layer and a 0.45 mm active depth
+        energies = np.array([1.74, 6.40, 14.96])
+        layers = [("Al", 25), ("Si", 50)]
+        np.testing.assert_allclose(
+            detector_efficiency_from_layers(
+                energies, layers, 0.45, xray_entrance_angle=35
+            ),
+            [0.968717, 0.997574, 0.702949],
+            atol=1e-5,
+        )
+        np.testing.assert_allclose(
+            detector_efficiency_from_layers(
+                energies, layers, 0.45, xray_entrance_angle=45
+            ),
+            [0.963851, 0.997190, 0.754886],
+            atol=1e-5,
+        )
+        np.testing.assert_allclose(
+            detector_efficiency_from_layers(
+                energies, layers, 0.45, xray_entrance_angle=60
+            ),
+            [0.949263, 0.996029, 0.862949],
+            atol=1e-5,
+        )
+
+    def test_xray_entrance_angle_scalar_input(self):
+        efficiency = detector_efficiency_from_layers(
+            20.0, [], 0.45, xray_entrance_angle=35
+        )
+        assert np.ndim(efficiency) == 0
+        assert 0 < efficiency < 1
+
+    def test_invalid_xray_entrance_angle(self):
+        for xray_entrance_angle in (-10.0, 90.0, 120.0):
+            with pytest.raises(ValueError, match="xray_entrance_angle"):
+                detector_efficiency_from_layers(
+                    np.array([5.0]), [], 0.45, xray_entrance_angle=xray_entrance_angle
+                )
+
 
 class TestLoadDetectorEfficiency:
     def test_load_and_sort(self, tmp_path):

@@ -25,3 +25,9 @@ the new ``detector_efficiency_from_layers``). The interpolated efficiency
 curve of a SuperX windowless silicon drift detector is bundled with eXSpy
 (``SUPERX_EFFICIENCY_FILE``), redistributed from the `ASTORUM
 <https://github.com/sebastian-cozma/ASTORUM>`_ package.
+
+``detector_efficiency_from_layers`` accepts an ``xray_entrance_angle``
+argument: the angle (in degrees) between the detector normal and the mean
+direction of the X-rays — the *beam entrance angle* in the Bruker QUANTAX
+terminology — which increases the effective thickness of the layers and of
+the active volume by ``1 / cos(xray_entrance_angle)``.

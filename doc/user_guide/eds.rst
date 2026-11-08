@@ -781,6 +781,24 @@ thickness of the active detector volume with
     >>> exspy.utils.eds.get_k_factors(300, ["Y_Ka"], detector_efficiency=efficiency)
     [8.3490...]
 
+X-rays entering the detector at an angle to its normal travel through every
+layer and the active volume along a path longer by a factor
+``1 / cos(xray_entrance_angle)``, which increases their effective thicknesses.
+Pass the angle (in degrees) between the detector normal and the mean X-ray
+direction as ``xray_entrance_angle`` — the *beam entrance angle* in the
+Bruker QUANTAX terminology; an angle quoted from the window plane instead
+must be converted as ``90 - angle``:
+
+.. code-block:: python
+
+    >>> efficiency_tilted = lambda E: detector_efficiency_from_layers(
+    ...     E, layers, 0.45, xray_entrance_angle=35)
+
+Note that the entrance angle also reduces the solid angle subtended by the
+detector by ``cos(xray_entrance_angle)``, which lowers the measured count
+rates, but not the efficiency; that effect cancels out in the k-factor
+correction above.
+
 The same correction can be passed directly to the quantification:
 
 .. code-block:: python
